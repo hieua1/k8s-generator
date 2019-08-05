@@ -42,14 +42,22 @@ var (
 )
 
 func main() {
+	saveOutput = jsonScrFileName != ""
+	if !saveOutput {
+		jsonScrFileName = fmt.Sprintf("%d-secret.json", time.Now().Unix())
+	}
+	_ = os.Remove(jsonScrFileName)
+	defer func() {
+		if !saveOutput {
+			_ = os.Remove(jsonScrFileName)
+		}
+	}()
 	parseFlags()
 	createSecretFromRaw()
 	if applyAfterCreate {
 		applySecret()
 	}
-	if !saveOutput {
-		_ = os.Remove(jsonScrFileName)
-	}
+
 }
 
 func parseFlags() {
@@ -110,11 +118,6 @@ func createSecretFromRaw() {
 		log.Panic(err)
 	}
 
-	saveOutput = jsonScrFileName != ""
-	if !saveOutput {
-		jsonScrFileName = fmt.Sprintf("%d-secret.json", time.Now().Unix())
-	}
-	_ = os.Remove(jsonScrFileName)
 	g, err := os.OpenFile(jsonScrFileName, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		log.Panic(err)
