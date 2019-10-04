@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	_secretOpaqueType = "Opaque"
-	_apiV1            = "v1"
-	_secretType       = "Secret"
+	secretOpaqueType = "Opaque"
+	apiV1            = "v1"
+	secretType       = "Secret"
 )
 
 type secretData map[string]string
@@ -42,22 +42,14 @@ var (
 )
 
 func main() {
-	saveOutput = jsonScrFileName != ""
-	if !saveOutput {
-		jsonScrFileName = fmt.Sprintf("%d-secret.json", time.Now().Unix())
-	}
-	_ = os.Remove(jsonScrFileName)
-	defer func() {
-		if !saveOutput {
-			_ = os.Remove(jsonScrFileName)
-		}
-	}()
 	parseFlags()
+	if !saveOutput {
+		defer os.Remove(jsonScrFileName)
+	}
 	createSecretFromRaw()
 	if applyAfterCreate {
 		applySecret()
 	}
-
 }
 
 func parseFlags() {
@@ -69,11 +61,13 @@ func parseFlags() {
 	if jsonRawScrFileName == "" {
 		log.Fatal("You have to specify raw secret file name using flag -f.")
 	}
-	if jsonScrFileName == "" {
-
+	saveOutput = jsonScrFileName != ""
+	if !saveOutput {
+		jsonScrFileName = fmt.Sprintf("%d-secret.json", time.Now().Unix())
 	}
 }
-func extractJson(fileName string, scr interface{}) {
+
+func extractJson(fileName string, scr *secret) {
 	f, err := os.Open(fileName)
 	if err != nil {
 		log.Panic(err)
@@ -88,13 +82,13 @@ func extractJson(fileName string, scr interface{}) {
 		log.Panic(err)
 	}
 	// fill empty fields
-	tmp := scr.(*secret)
-	tmp.Kind = _secretType
+	tmp := scr
+	tmp.Kind = secretType
 	if tmp.Type == "" {
-		tmp.Type = _secretOpaqueType
+		tmp.Type = secretOpaqueType
 	}
 	if tmp.ApiVersion == "" {
-		tmp.ApiVersion = _apiV1
+		tmp.ApiVersion = apiV1
 	}
 	if tmp.Metadata.Name == "" {
 		if secretName == "" {
@@ -113,17 +107,17 @@ func createSecretFromRaw() {
 	for k, v := range dt {
 		dt[k] = base64.StdEncoding.EncodeToString([]byte(v))
 	}
-	jsonScrFileNameData, err := json.MarshalIndent(&rawSecret, "", "    ")
+	jsonScrFileData, err := json.MarshalIndent(&rawSecret, "", "    ")
 	if err != nil {
 		log.Panic(err)
 	}
-
+	_ = os.Remove(jsonScrFileName)
 	g, err := os.OpenFile(jsonScrFileName, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		log.Panic(err)
 	}
 	defer g.Close()
-	_, err = g.Write(jsonScrFileNameData)
+	_, err = g.Write(jsonScrFileData)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -135,6 +129,6 @@ func applySecret() {
 	cmd.Stdout = os.Stdout
 	err := cmd.Run()
 	if err != nil {
-		log.Fatalf("cmd.Run() failed with %s\n", err)
+		log.Panic(fmt.Sprintf("cmd.Run() failed with %s", err.Error()))
 	}
 }
